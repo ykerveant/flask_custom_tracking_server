@@ -1,0 +1,74 @@
+from flask import Flask, render_template
+from flask import request, make_response
+from google.cloud import bigquery
+from google.oauth2 import service_account
+from datetime import datetime
+
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return render_template("home.html")
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
+    
+@app.route("/cookies")
+def cookies():
+
+    #  setting page content
+    resp = make_response("This is my test page for Cookies")
+    
+    # setting cookie
+    resp.set_cookie("Yann", "my_first_flask_cookie")
+    #  resp.set_cookie("Yann", "my_first_flask_cookie", secure=True, httponly=True, samesite='Lax')
+    
+    #  creating cookie object
+    cookies = request.cookies
+    global cookie_value
+    
+    # calling cookie values
+    cookie_value = cookies.get("Yann")
+    global cookie_date
+    cookie_date = datetime.now()
+    cookie_date = str(cookie_date)
+
+    print(cookies)
+    print(cookie_value)
+    print(cookie_date)
+
+    bqtuple = (cookie_date, cookie_value)
+
+    #  big query begins here
+    credentials = service_account.Credentials.from_service_account_file("client_secret.json")
+    # replace project id below
+    project_id = '---project id here---'
+
+    client = bigquery.Client(credentials=credentials, project=project_id)
+
+
+    def table_insertion():
+        # Prepares a reference to the dataset
+        # replace dataset below
+        dataset_ref = client.dataset('---dataset id here---')
+
+        table_ref = dataset_ref.table('-- bq table here ---')
+        table = client.get_table(table_ref)  # API call
+
+        #  rows to insert, tuples only. if one element x = ("my element",) with the coma
+        rows_to_insert = [bqtuple]
+        #rows_to_insert.append(bqtuple)
+
+        errors = client.insert_rows(table, rows_to_insert)  # API request
+        # assert errors == []
+
+    table_insertion()
+
+    return resp
+
+    
+if __name__ == "__main__":
+    app.run(debug=True)
+
